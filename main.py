@@ -6,9 +6,9 @@ from typing import NamedTuple
 
 from tqdm import tqdm
 
-from database import DataBase, Prefix
+import const
 
-from dotenv import load_dotenv
+from database import DataBase, Prefix
 
 from errors import ManagerNotFoundError, TooManyDocumentsError
 
@@ -19,18 +19,6 @@ import requests
 from sale_calculator import Sale, calculate_full_rating
 
 from sale_formatter import format_data_rating
-
-load_dotenv()
-
-INDEX_I = 1
-INDEX_NUMDOC = 2
-INDEX_CLIENT = 5
-INDEX_DATE = 6
-INDEX_SUM = 14
-DOMAIN = os.getenv('DOMAIN')
-LOGIN_URL = os.getenv('LOGIN_URL')
-SCRAPE_URL = os.getenv('SCRAPE_URL')
-SCRAPE_MANAGER_URL = os.getenv('SCRAPE_MANAGER_URL')
 
 
 class DatesOfDocuments(NamedTuple):
@@ -63,14 +51,14 @@ def main():
 
 def create_session() -> requests.Session:
     headers = {
-        'authority': f'{DOMAIN}',
+        'authority': f'{const.DOMAIN}',
         'accept': 'application/json, text/javascript, */*; q=0.01',
         'user-agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 '
                        '(KHTML, like Gecko) Chrome/83.0.4103.97 Safari/537.36'),
         'x-requested-with': 'XMLHttpRequest',
         'sec-fetch-site': 'same-origin',
         'sec-fetch-mode': 'cors',
-        'referer': f'https://{DOMAIN}/cat/invoice.html',
+        'referer': f'https://{const.DOMAIN}/cat/invoice.html',
         'accept-language': 'en-US,en;q=0.9,ru;q=0.8',
         }
     login = os.getenv('USER')
@@ -78,7 +66,7 @@ def create_session() -> requests.Session:
     auth_data = {'auth[password]': password, 'auth[login]': login}
     session = requests.session()
     result = session.get(
-        LOGIN_URL.format(login, password),
+        const.LOGIN_URL.format(login, password),
         data=auth_data, headers=headers,
     )
     session_id = result.cookies.get('session-id')
@@ -140,7 +128,7 @@ def parse_data(
         prefix: Manager.prefix,
         managers: list[Manager],
         base):
-    url = SCRAPE_URL.format(dates.date_begin, dates.date_end, prefix)
+    url = const.SCRAPE_URL.format(dates.date_begin, dates.date_end, prefix)
     response = session.get(url)
     result = json.loads(response.text)
     if _check_parsed_data(result, dates=dates, prefix=prefix):
@@ -159,10 +147,10 @@ def _parse_json(json_, session, managers_list, base) -> list[Sale]:
     result = list()
     for row in json_['rows']:
         try:
-            sum_doc = float(row['cell'][INDEX_SUM])
+            sum_doc = float(row['cell'][const.INDEX_SUM])
         except ValueError:
             sum_doc = 0
-        prefix = Prefix(row['cell'][INDEX_NUMDOC][:7])
+        prefix = Prefix(row['cell'][const.INDEX_NUMDOC][:7])
         manager = base.get_manager_by_prefix(str(prefix))
         if not manager:
             try:
@@ -173,18 +161,18 @@ def _parse_json(json_, session, managers_list, base) -> list[Sale]:
         if manager:
             result.append(Sale(
                 int_number=row['id'],
-                number=row['cell'][INDEX_NUMDOC],
-                client=row['cell'][INDEX_CLIENT],
-                date=datetime.datetime.strptime(row['cell'][INDEX_DATE], '%d/%m/%y'),
+                number=row['cell'][const.INDEX_NUMDOC],
+                client=row['cell'][const.INDEX_CLIENT],
+                date=datetime.datetime.strptime(row['cell'][const.INDEX_DATE], '%d/%m/%y'),
                 sum_doc=sum_doc,
-                i=row['cell'][INDEX_I] == 'i',
+                i=row['cell'][const.INDEX_I] == 'i',
                 manager=manager,
             ))
     return result
 
 
 def scrap_manager(numdoc, session, managers_list) -> str:
-    url = SCRAPE_MANAGER_URL.format(numdoc)
+    url = const.SCRAPE_MANAGER_URL.format(numdoc)
     string = session.get(url).text
     if 'Запись не найдена' in string:
         return 0
