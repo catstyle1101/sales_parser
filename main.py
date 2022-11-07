@@ -1,18 +1,17 @@
 import datetime
+from dataclasses import dataclass
 import json
 import os
 import time
-from typing import NamedTuple
 
 from tqdm import tqdm
 
 import const
 
-from database import DataBase, Prefix
+from database.models import Manager
+from database.database import DataBase, Prefix
 
 from errors import ManagerNotFoundError, TooManyDocumentsError
-
-from models import Manager
 
 import requests
 
@@ -21,7 +20,8 @@ from sale_calculator import Sale, calculate_full_rating
 from sale_formatter import format_data_rating
 
 
-class DatesOfDocuments(NamedTuple):
+@dataclass(frozen=True)
+class DatesOfDocuments:
     date_begin: str
     date_end: str
 
@@ -45,6 +45,7 @@ def main():
     sales_data = collect_all_data(session, list_of_dates, list_of_managers, base)
     data_for_rating = calculate_full_rating(sales_data)
     formatted_string = format_data_rating(data_for_rating)
+
     print()
     print(formatted_string)
 
@@ -115,9 +116,10 @@ def collect_all_data(
         for prefix in prefixes:
             progress_bar.update(1)
             data = parse_data(session, date, prefix, managers, base)
-            if data:
-                for string in data:
-                    result.append(string)
+            if not data:
+                continue
+            for row in data:
+                result.append(row)
     progress_bar.close()
     return result
 
@@ -165,7 +167,7 @@ def _parse_json(json_, session, managers_list, base) -> list[Sale]:
                 client=row['cell'][const.INDEX_CLIENT],
                 date=datetime.datetime.strptime(row['cell'][const.INDEX_DATE], '%d/%m/%y'),
                 sum_doc=sum_doc,
-                i=row['cell'][const.INDEX_I] == 'i',
+                i_doc=row['cell'][const.INDEX_I] == 'i',
                 manager=manager,
             ))
     return result
@@ -173,13 +175,13 @@ def _parse_json(json_, session, managers_list, base) -> list[Sale]:
 
 def scrap_manager(numdoc, session, managers_list) -> str:
     url = const.SCRAPE_MANAGER_URL.format(numdoc)
-    string = session.get(url).text
-    if 'Запись не найдена' in string:
+    page_data = session.get(url).text
+    if 'Запись не найдена' in page_data:
         return 0
-    val_manager = string.find('contact_mandetail')
-    begin = string.find('(', val_manager) + 1
-    end = string.find(')', val_manager)
-    return int(string[begin:end])
+    val_manager = page_data.find('contact_mandetail')
+    begin = page_data.find('(', val_manager) + 1
+    end = page_data.find(')', val_manager)
+    return int(page_data[begin:end])
 
 
 if __name__ == '__main__':

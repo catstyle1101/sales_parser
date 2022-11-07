@@ -2,10 +2,8 @@ import datetime
 from dataclasses import dataclass
 from statistics import median
 
-from database import DataBase
-
-from models import Manager
-
+from database.models import Manager
+from database.database import DataBase
 
 RETAIL_TRESHOLD = 15000
 PRIVATE_CUSTOMER_TRESHOLD = 15000
@@ -21,13 +19,8 @@ class Sale:
     client: str
     date: datetime.datetime
     sum_doc: float
-    i: bool
+    i_doc: bool
     manager: Manager
-
-
-class ManagerSales:
-    def __init__(self):
-        pass
 
 
 def calculate_sales(data: list[Sale]) -> dict:
@@ -64,9 +57,7 @@ def calculate_rating(manager_sales: dict) -> dict:
 
 def _sort_sales(result: dict) -> dict:
     sorted_keys = sorted(result, key=lambda x: result[x]['sum'], reverse=True)
-    sorted_sales = dict()
-    for item in sorted_keys:
-        sorted_sales[item] = result[item]
+    sorted_sales = {item: result[item] for item in sorted_keys}
     return sorted_sales
 
 

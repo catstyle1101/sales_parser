@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from errors import ManagerNotFoundError
 
-from models import Manager
+from .models import Manager
 
 from sqlalchemy import and_, create_engine, select
 from sqlalchemy.orm import Session
